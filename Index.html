@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,7 +7,7 @@
     
     <!-- PWA Manifest (Data URI for Single File capability) -->
     <link rel="manifest" id="manifest-placeholder">
-    <meta name="theme-color" content="#05080c">
+    <meta name="theme-color" content="#fecfef">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -19,17 +19,23 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
+                        white: '#0f172a', // Remap white to dark slate for inverted light mode
+                        black: '#ffffff', // Remap black to white for vibrant buttons
+                        slate: {
+                            300: '#64748b',
+                            400: '#475569',
+                            500: '#334155',
+                        },
                         brand: {
-                            900: '#0a0f16',
-                            800: '#111827',
-                            dark: '#05080c',
-                            accent1: '#00f2fe',
-                            accent2: '#4facfe'
+                            900: '#ffedd5',
+                            800: '#ffedd5',
+                            dark: '#fdf2f8', // Light vibrant pink background
+                            accent1: '#ff2a5f', // Vibrant pink
+                            accent2: '#ff8a00'  // Vibrant orange
                         }
                     },
                     animation: {
@@ -48,32 +54,32 @@
 
     <style>
         body {
-            background-color: #05080c;
-            color: #f1f5f9;
+            background: linear-gradient(135deg, #fecfef 0%, #ff9a9e 100%);
+            color: #0f172a;
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: none;
         }
 
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .glass-panel { background: linear-gradient(145deg, rgba(30,41,59,0.4) 0%, rgba(15,23,42,0.4) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); }
+        .glass { background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.8); }
+        .glass-panel { background: linear-gradient(145deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.5) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05); }
 
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
 
         .hidden-view { display: none !important; }
 
         input[type="checkbox"] {
-            appearance: none; background-color: rgba(255, 255, 255, 0.05); margin: 0; font: inherit; color: currentColor;
-            width: 1.5em; height: 1.5em; border: 1px solid rgba(255,255,255,0.2); border-radius: 0.35em;
+            appearance: none; background-color: rgba(0, 0, 0, 0.05); margin: 0; font: inherit; color: currentColor;
+            width: 1.5em; height: 1.5em; border: 1px solid rgba(0,0,0,0.2); border-radius: 0.35em;
             display: grid; place-content: center; transition: all 0.2s;
         }
         input[type="checkbox"]::before {
             content: ""; width: 0.8em; height: 0.8em; transform: scale(0); transition: 120ms transform ease-in-out;
-            box-shadow: inset 1em 1em var(--form-control-color, #00f2fe); transform-origin: center;
+            box-shadow: inset 1em 1em #ffffff; transform-origin: center;
             clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
         }
-        input[type="checkbox"]:checked { background-color: rgba(0, 242, 254, 0.1); border-color: #00f2fe; }
+        input[type="checkbox"]:checked { background-color: #ff2a5f; border-color: #ff2a5f; }
         input[type="checkbox"]:checked::before { transform: scale(1); }
         
         .toast {
@@ -82,7 +88,7 @@
         }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-        .nav-item.active { color: #00f2fe; }
+        .nav-item.active { color: #ff2a5f; }
         
         #particles-js { position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 0; pointer-events: none; opacity: 0.4; }
         
@@ -132,8 +138,8 @@
                 <i class="ph ph-calendar-blank text-4xl text-brand-accent1 mb-6 block text-center"></i>
                 <h2 class="text-3xl font-bold text-center mb-2">Set The Date</h2>
                 <p class="text-slate-400 text-center mb-8">When is the deadline?</p>
-                <input type="date" id="onb-date" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 mb-6 text-white text-center focus:border-brand-accent1 outline-none block" style="color-scheme: dark;">
-                <button onclick="finishOnboarding()" class="w-full bg-gradient-to-r from-blue-600 to-brand-accent1 hover:from-blue-500 hover:to-brand-accent2 text-white font-bold py-4 rounded-xl transition-all shadow-lg">BEGIN JOURNEY</button>
+                <input type="date" id="onb-date" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 mb-6 text-white text-center focus:border-brand-accent1 outline-none block" style="color-scheme: light;">
+                <button onclick="finishOnboarding()" class="w-full bg-gradient-to-r from-blue-600 to-brand-accent1 hover:from-blue-500 hover:to-brand-accent2 text-black font-bold py-4 rounded-xl transition-all shadow-lg">BEGIN JOURNEY</button>
             </div>
         </div>
     </div>
@@ -207,8 +213,8 @@
 
                 <div class="relative w-64 h-64 flex items-center justify-center">
                     <svg class="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"></circle>
-                        <circle id="timer-ring" cx="50" cy="50" r="45" fill="none" stroke="#00f2fe" stroke-width="4" stroke-dasharray="283" stroke-dashoffset="0" class="transition-all duration-1000 linear"></circle>
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="4"></circle>
+                        <circle id="timer-ring" cx="50" cy="50" r="45" fill="none" stroke="#ff2a5f" stroke-width="4" stroke-dasharray="283" stroke-dashoffset="0" class="transition-all duration-1000 linear"></circle>
                     </svg>
                     <div class="text-center z-10">
                         <span id="timer-display" class="text-5xl font-extrabold tracking-tighter">25:00</span>
@@ -266,9 +272,9 @@
                         <span>Less</span>
                         <div class="flex gap-1">
                             <div class="w-3 h-3 bg-white/5 rounded-sm"></div>
-                            <div class="w-3 h-3 bg-blue-900/50 rounded-sm"></div>
-                            <div class="w-3 h-3 bg-blue-600 rounded-sm"></div>
-                            <div class="w-3 h-3 bg-brand-accent1 rounded-sm shadow-[0_0_5px_rgba(0,242,254,0.5)]"></div>
+                            <div class="w-3 h-3 bg-pink-300/50 rounded-sm"></div>
+                            <div class="w-3 h-3 bg-pink-500 rounded-sm"></div>
+                            <div class="w-3 h-3 bg-brand-accent1 rounded-sm shadow-[0_0_5px_rgba(255,42,95,0.5)]"></div>
                         </div>
                         <span>More</span>
                     </div>
@@ -293,7 +299,7 @@
                             <h4 class="text-sm font-bold text-white">Install Focus Journey</h4>
                             <p class="text-[10px] text-slate-400 mt-1">Install this app to your device's home screen for offline access and a full-screen experience.</p>
                         </div>
-                        <button onclick="installPWA()" class="w-full mt-2 bg-gradient-to-r from-blue-600 to-brand-accent1 hover:from-blue-500 hover:to-brand-accent2 text-white font-bold py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(0,242,254,0.3)] flex items-center justify-center gap-2">
+                        <button onclick="installPWA()" class="w-full mt-2 bg-gradient-to-r from-blue-600 to-brand-accent1 hover:from-blue-500 hover:to-brand-accent2 text-black font-bold py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(255,42,95,0.3)] flex items-center justify-center gap-2">
                             <i class="ph ph-download-simple text-xl"></i> INSTALL APP
                         </button>
                     </div>
@@ -428,9 +434,18 @@
         let deferredPrompt; // For PWA Installation
 
         const defaultTasks = [
-            { id: 't1', text: 'Deep Work Session', category: 'Study' },
-            { id: 't2', text: 'Daily Reading / Review', category: 'Mind' }
+            { id: 't1', text: '300 Questions Target', category: 'Study' },
+            { id: 't2', text: 'Daily Revision', category: 'Study' }
         ];
+
+        function getDateForDay(dayIndex) {
+            if (!appState.targetDate) return new Date();
+            const end = new Date(appState.targetDate);
+            end.setHours(23, 59, 59, 999);
+            const d = new Date(end);
+            d.setDate(end.getDate() - (TOTAL_DAYS - dayIndex));
+            return d;
+        }
 
         let appState = {
             onboarded: false,
@@ -664,7 +679,11 @@
             el('dash-streak').innerText = streak;
 
             const todayData = appState.progress[currentDayIndex] || { tasksCompleted: [], customTasks: [] };
-            const totalToday = defaultTasks.length + todayData.customTasks.length;
+            const dateForToday = getDateForDay(currentDayIndex);
+            const dayOfWeek = dateForToday.getDay();
+            let totalToday = defaultTasks.length + todayData.customTasks.length;
+            if (dayOfWeek === 0 || dayOfWeek === 3) totalToday += 1;
+
             el('dash-today').innerText = `${todayData.tasksCompleted.length} / ${totalToday}`;
         }
 
@@ -747,7 +766,11 @@
 
             for(let i=1; i<=TOTAL_DAYS; i++) {
                 const dayObj = appState.progress[i] || { tasksCompleted: [], customTasks: [] };
-                const totalTasks = defaultTasks.length + dayObj.customTasks.length;
+                const dateForDay = getDateForDay(i);
+                const dayOfWeek = dateForDay.getDay();
+                let totalTasks = defaultTasks.length + dayObj.customTasks.length;
+                if (dayOfWeek === 0 || dayOfWeek === 3) totalTasks += 1;
+
                 const completed = dayObj.tasksCompleted.length;
                 const pct = totalTasks === 0 ? 0 : Math.round((completed / totalTasks) * 100);
                 
@@ -812,11 +835,19 @@
             container.innerHTML = '';
             
             const dayData = appState.progress[activeDay];
-            const allTasks = [...defaultTasks, ...dayData.customTasks];
+            let allTasks = [...defaultTasks];
+            
+            const dateForDay = getDateForDay(activeDay);
+            const dayOfWeek = dateForDay.getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 3) {
+                allTasks.push({ id: 't_test', text: 'Practice Test', category: 'Test' });
+            }
+            
+            allTasks = [...allTasks, ...dayData.customTasks];
             
             allTasks.forEach(task => {
                 const isCompleted = dayData.tasksCompleted.includes(task.id);
-                const categoryColor = task.category === 'Study' ? 'text-blue-400' : task.category === 'Fitness' ? 'text-green-400' : 'text-purple-400';
+                const categoryColor = task.category === 'Study' ? 'text-blue-500' : task.category === 'Fitness' ? 'text-green-500' : task.category === 'Test' ? 'text-orange-500' : 'text-purple-500';
                 
                 const div = document.createElement('div');
                 div.className = `glass p-3 rounded-xl flex items-center justify-between border ${isCompleted ? 'border-brand-accent1/50 bg-brand-accent1/5' : 'border-white/5'}`;
@@ -961,7 +992,11 @@
 
             for(let i=1; i<=TOTAL_DAYS; i++) {
                 const dayData = appState.progress[i] || { tasksCompleted: [], customTasks: [] };
-                const total = defaultTasks.length + dayData.customTasks.length;
+                const dateForDay = getDateForDay(i);
+                const dayOfWeek = dateForDay.getDay();
+                let total = defaultTasks.length + dayData.customTasks.length;
+                if (dayOfWeek === 0 || dayOfWeek === 3) total += 1;
+                
                 const comp = dayData.tasksCompleted.length;
                 
                 totalTasksAllTime += total;
@@ -973,9 +1008,9 @@
                 cell.className = 'aspect-square rounded-sm text-[8px] flex items-center justify-center font-bold relative group';
                 
                 if (pct === 0) cell.classList.add('bg-white/5');
-                else if (pct < 0.5) cell.classList.add('bg-blue-900/50');
-                else if (pct < 1) cell.classList.add('bg-blue-600');
-                else cell.classList.add('bg-brand-accent1', 'shadow-[0_0_5px_rgba(0,242,254,0.5)]', 'text-black');
+                else if (pct < 0.5) cell.classList.add('bg-pink-300/50');
+                else if (pct < 1) cell.classList.add('bg-pink-500');
+                else cell.classList.add('bg-brand-accent1', 'shadow-[0_0_5px_rgba(255,42,95,0.5)]', 'text-black');
                 
                 // Tooltip
                 const tooltip = document.createElement('div');
