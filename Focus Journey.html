@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Focus Journey</title>
+    
+    <!-- PWA Manifest (Data URI for Single File capability) -->
+    <link rel="manifest" id="manifest-placeholder">
+    <meta name="theme-color" content="#05080c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            900: '#0a0f16',
+                            800: '#111827',
+                            dark: '#05080c',
+                            accent1: '#00f2fe',
+                            accent2: '#4facfe'
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.4s ease-out forwards',
+                        'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #05080c;
+            color: #f1f5f9;
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: none;
+        }
+
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-panel { background: linear-gradient(145deg, rgba(30,41,59,0.4) 0%, rgba(15,23,42,0.4) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+        .hidden-view { display: none !important; }
+
+        input[type="checkbox"] {
+            appearance: none; background-color: rgba(255, 255, 255, 0.05); margin: 0; font: inherit; color: currentColor;
+            width: 1.5em; height: 1.5em; border: 1px solid rgba(255,255,255,0.2); border-radius: 0.35em;
+            display: grid; place-content: center; transition: all 0.2s;
+        }
+        input[type="checkbox"]::before {
+            content: ""; width: 0.8em; height: 0.8em; transform: scale(0); transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em var(--form-control-color, #00f2fe); transform-origin: center;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        input[type="checkbox"]:checked { background-color: rgba(0, 242, 254, 0.1); border-color: #00f2fe; }
+        input[type="checkbox"]:checked::before { transform: scale(1); }
+        
+        .toast {
+            position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px);
+            opacity: 0; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); z-index: 99999;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        .nav-item.active { color: #00f2fe; }
+        
+        #particles-js { position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 0; pointer-events: none; opacity: 0.4; }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="antialiased h-screen w-screen overflow-hidden flex flex-col relative">
+
+    <!-- Background Effect -->
+    <div id="particles-js"></div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast glass-panel rounded-full px-6 py-3 text-sm font-medium shadow-2xl flex items-center gap-2 pointer-events-none">
+        <i class="ph ph-info text-brand-accent1 text-lg"></i>
+        <span id="toast-msg">Message</span>
+    </div>
+
+    <!-- Hidden File Input for Import -->
+    <input type="file" id="file-import" accept=".json" class="hidden">
+    
+    <!-- Audio Elements -->
+    <audio id="sfx-complete" src="https://assets.mixkit.co/active_storage/sfx/1131/1131-preview.mp3" preload="auto"></audio>
+    <audio id="sfx-ambient" src="https://assets.mixkit.co/active_storage/sfx/2502/2502-preview.mp3" loop preload="auto"></audio>
+
+    <!-- VIEW: ONBOARDING -->
+    <div id="view-onboarding" class="hidden-view absolute inset-0 z-50 bg-brand-dark overflow-y-auto">
+        <div class="min-h-full flex flex-col items-center justify-center p-6 py-12 relative z-10">
+            <div id="onb-step-1" class="w-full max-w-md animate-slide-up">
+                <div class="w-20 h-20 rounded-full bg-brand-accent1/10 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(0,242,254,0.15)]">
+                    <i class="ph ph-flag-checkered text-4xl text-brand-accent1"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-center mb-2">90-Day Journey</h2>
+                <p class="text-slate-400 text-center mb-8">What should we call you?</p>
+                <input type="text" id="onb-name" placeholder="Your Name" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 mb-6 text-white text-center focus:border-brand-accent1 outline-none">
+                <button onclick="nextOnboardingStep(2)" class="w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-4 rounded-xl transition-all">NEXT</button>
+            </div>
+
+            <div id="onb-step-2" class="hidden-view w-full max-w-md animate-slide-up">
+                <i class="ph ph-target text-4xl text-brand-accent1 mb-6 block text-center"></i>
+                <h2 class="text-3xl font-bold text-center mb-2">Your Target</h2>
+                <p class="text-slate-400 text-center mb-8">What is your main goal for the next 90 days?</p>
+                <input type="text" id="onb-target" placeholder="e.g., Final Exams, Project Launch" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 mb-6 text-white text-center focus:border-brand-accent1 outline-none">
+                <button onclick="nextOnboardingStep(3)" class="w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-4 rounded-xl transition-all">NEXT</button>
+            </div>
+
+            <div id="onb-step-3" class="hidden-view w-full max-w-md animate-slide-up">
+                <i class="ph ph-calendar-blank text-4xl text-brand-accent1 mb-6 block text-center"></i>
+                <h2 class="text-3xl font-bold text-center mb-2">Set The Date</h2>
+                <p class="text-slate-400 text-center mb-8">When is the deadline?</p>
+                <input type="date" id="onb-date" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 mb-6 text-white text-center focus:border-brand-accent1 outline-none block" style="color-scheme: dark;">
+                <button onclick="finishOnboarding()" class="w-full bg-gradient-to-r from-blue-600 to-brand-accent1 hover:from-blue-500 hover:to-brand-accent2 text-white font-bold py-4 rounded-xl transition-all shadow-lg">BEGIN JOURNEY</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div id="app-container" class="hidden-view h-full w-full flex flex-col relative z-10">
+        
+        <!-- VIEW: DASHBOARD (HERO) -->
+        <div id="view-hero" class="flex-1 overflow-y-auto pb-24 app-view">
+            <header class="w-full p-6 flex justify-between items-center bg-gradient-to-b from-brand-dark to-transparent sticky top-0 z-20">
+                <div>
+                    <h1 class="text-xl font-bold tracking-widest uppercase">Overview</h1>
+                    <p class="text-xs text-brand-accent1 tracking-wider font-semibold" id="hero-greeting">Welcome</p>
+                </div>
+            </header>
+
+            <div class="px-6 flex flex-col gap-6 max-w-lg mx-auto">
+                <!-- Quote Engine -->
+                <div class="glass-panel p-4 rounded-2xl text-center italic text-slate-300 text-sm border-l-4 border-l-brand-accent1 shadow-lg relative overflow-hidden">
+                    <i class="ph ph-quotes absolute opacity-10 text-5xl -left-2 -top-2"></i>
+                    <p id="daily-quote" class="relative z-10">"Consistency is what transforms average into excellence."</p>
+                </div>
+
+                <!-- Countdown Widget -->
+                <div class="w-full relative">
+                    <div class="absolute inset-0 bg-brand-accent1/5 blur-[40px] rounded-full pointer-events-none"></div>
+                    <div class="glass-panel rounded-3xl p-8 flex flex-col items-center relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+                        <h2 id="hero-target-name" class="text-xl font-bold text-slate-300 mb-1 z-10 text-center uppercase">TARGET</h2>
+                        
+                        <div class="flex flex-col items-center justify-center my-4 z-10">
+                            <span id="count-days" class="text-7xl font-extrabold text-white tracking-tighter drop-shadow-lg">000</span>
+                            <span class="text-sm tracking-[0.3em] text-brand-accent1 font-medium mt-1">DAYS REMAINING</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats Grid -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="glass rounded-2xl p-5 flex flex-col justify-between aspect-square">
+                        <div class="text-slate-400 mb-2"><i class="ph ph-check-circle text-2xl"></i></div>
+                        <div>
+                            <p class="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Today's Focus</p>
+                            <p id="dash-today" class="text-2xl font-bold text-white">0 / 4</p>
+                        </div>
+                    </div>
+                    <div class="glass rounded-2xl p-5 flex flex-col justify-between aspect-square relative overflow-hidden">
+                        <div class="absolute -right-2 -bottom-4 text-orange-500/10"><i class="ph ph-fire text-8xl"></i></div>
+                        <div class="text-orange-400 mb-2"><i class="ph ph-fire text-2xl"></i></div>
+                        <div class="relative z-10">
+                            <p class="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Streak</p>
+                            <p class="text-3xl font-extrabold text-white"><span id="dash-streak">0</span> <span class="text-base font-normal">🔥</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: TIMER -->
+        <div id="view-timer" class="hidden-view flex-1 overflow-y-auto pb-24 app-view">
+            <header class="w-full p-6 bg-gradient-to-b from-brand-dark to-transparent sticky top-0 z-20">
+                <h1 class="text-xl font-bold tracking-widest uppercase">Focus Timer</h1>
+                <p class="text-xs text-brand-accent1 tracking-wider font-semibold">Deep Work Sessions</p>
+            </header>
+            
+            <div class="px-6 flex flex-col items-center gap-8 max-w-lg mx-auto mt-4">
+                <div class="flex gap-2 p-1 bg-white/5 rounded-lg border border-white/10 w-full max-w-[300px]">
+                    <button onclick="setTimerMode('focus')" id="btn-mode-focus" class="flex-1 py-2 rounded text-sm font-bold bg-white/10 text-white transition-all">Focus</button>
+                    <button onclick="setTimerMode('break')" id="btn-mode-break" class="flex-1 py-2 rounded text-sm font-bold text-slate-400 hover:text-white transition-all">Break</button>
+                </div>
+
+                <div class="relative w-64 h-64 flex items-center justify-center">
+                    <svg class="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"></circle>
+                        <circle id="timer-ring" cx="50" cy="50" r="45" fill="none" stroke="#00f2fe" stroke-width="4" stroke-dasharray="283" stroke-dashoffset="0" class="transition-all duration-1000 linear"></circle>
+                    </svg>
+                    <div class="text-center z-10">
+                        <span id="timer-display" class="text-5xl font-extrabold tracking-tighter">25:00</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 w-full max-w-[300px]">
+                    <button onclick="toggleTimer()" id="btn-timer-toggle" class="flex-1 bg-brand-accent1 text-black font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(0,242,254,0.3)] hover:bg-brand-accent2 transition-all">START</button>
+                    <button onclick="resetTimer()" class="w-14 h-14 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center hover:bg-white/10 transition-all text-slate-300">
+                        <i class="ph ph-arrow-counter-clockwise text-xl"></i>
+                    </button>
+                </div>
+
+                <div class="glass-panel w-full rounded-2xl p-4 mt-4 text-center">
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500 mb-1">Time Focused Today</p>
+                    <p id="timer-total-focused" class="text-xl font-bold text-white">0 minutes</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: TRACKER -->
+        <div id="view-tracker" class="hidden-view flex-1 overflow-y-auto pb-24 app-view relative">
+            <header class="w-full p-4 flex flex-col gap-1 border-b border-white/10 bg-brand-dark/90 sticky top-0 z-20">
+                <h1 class="text-lg font-bold uppercase tracking-widest">Journey Tracker</h1>
+                
+                <div class="flex justify-between text-xs font-semibold tracking-wider text-slate-400 mt-2 mb-1">
+                    <span>DAY 1</span><span id="tracker-overall-text">0%</span><span>DAY 90</span>
+                </div>
+                <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div id="tracker-progress-bar" class="h-full bg-gradient-to-r from-blue-500 to-brand-accent1 w-0 transition-all duration-1000"></div>
+                </div>
+            </header>
+            
+            <div class="p-4">
+                <div id="days-list" class="flex flex-col gap-3 max-w-lg mx-auto"></div>
+            </div>
+        </div>
+
+        <!-- VIEW: ANALYTICS -->
+        <div id="view-analytics" class="hidden-view flex-1 overflow-y-auto pb-24 app-view">
+            <header class="w-full p-6 bg-gradient-to-b from-brand-dark to-transparent sticky top-0 z-20">
+                <h1 class="text-xl font-bold tracking-widest uppercase">Analytics</h1>
+                <p class="text-xs text-brand-accent1 tracking-wider font-semibold">Data & Insights</p>
+            </header>
+            
+            <div class="px-6 max-w-lg mx-auto flex flex-col gap-6">
+                
+                <!-- Heatmap Feature -->
+                <div class="glass-panel p-5 rounded-2xl">
+                    <h3 class="text-xs font-semibold tracking-widest text-slate-500 mb-4">90-DAY HEATMAP</h3>
+                    <div id="heatmap-container" class="grid grid-cols-10 gap-1.5 sm:gap-2">
+                        <!-- Generated via JS -->
+                    </div>
+                    <div class="flex items-center justify-between mt-4 text-[10px] text-slate-400 uppercase tracking-widest">
+                        <span>Less</span>
+                        <div class="flex gap-1">
+                            <div class="w-3 h-3 bg-white/5 rounded-sm"></div>
+                            <div class="w-3 h-3 bg-blue-900/50 rounded-sm"></div>
+                            <div class="w-3 h-3 bg-blue-600 rounded-sm"></div>
+                            <div class="w-3 h-3 bg-brand-accent1 rounded-sm shadow-[0_0_5px_rgba(0,242,254,0.5)]"></div>
+                        </div>
+                        <span>More</span>
+                    </div>
+                </div>
+                
+                <div id="analytics-content" class="flex flex-col gap-4"></div>
+            </div>
+        </div>
+
+        <!-- VIEW: SETTINGS -->
+        <div id="view-settings" class="hidden-view flex-1 overflow-y-auto pb-24 app-view">
+            <header class="w-full p-6 bg-gradient-to-b from-brand-dark to-transparent sticky top-0 z-20">
+                <h1 class="text-xl font-bold tracking-widest uppercase">Settings</h1>
+            </header>
+
+            <div class="px-6 max-w-lg mx-auto flex flex-col gap-6">
+                <section id="install-section" class="hidden">
+                    <h3 class="text-xs font-semibold tracking-widest text-slate-500 mb-3">INSTALLATION</h3>
+                    <div class="glass border border-brand-accent1/30 rounded-2xl p-4 flex flex-col items-center text-center gap-3">
+                        <i class="ph ph-device-mobile text-4xl text-brand-accent1"></i>
+                        <div>
+                            <h4 class="text-sm font-bold text-white">Install Focus Journey</h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Install this app to your device's home screen for offline access and a full-screen experience.</p>
+                        </div>
+                        <button onclick="installPWA()" class="w-full mt-2 bg-gradient-to-r from-blue-600 to-brand-accent1 hover:from-blue-500 hover:to-brand-accent2 text-white font-bold py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(0,242,254,0.3)] flex items-center justify-center gap-2">
+                            <i class="ph ph-download-simple text-xl"></i> INSTALL APP
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Data Management (Backup/Restore) -->
+                <section>
+                    <h3 class="text-xs font-semibold tracking-widest text-slate-500 mb-3">DATA MANAGEMENT</h3>
+                    <div class="glass rounded-2xl p-4 flex gap-2">
+                        <button onclick="exportData()" class="flex-1 bg-white/5 hover:bg-white/10 p-3 rounded-xl flex flex-col items-center gap-2 transition-colors border border-white/5 text-sm">
+                            <i class="ph ph-export text-2xl text-blue-400"></i> Backup Data
+                        </button>
+                        <button onclick="document.getElementById('file-import').click()" class="flex-1 bg-white/5 hover:bg-white/10 p-3 rounded-xl flex flex-col items-center gap-2 transition-colors border border-white/5 text-sm">
+                            <i class="ph ph-import text-2xl text-brand-accent1"></i> Restore Data
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Preferences -->
+                <section>
+                    <h3 class="text-xs font-semibold tracking-widest text-slate-500 mb-3">PREFERENCES</h3>
+                    <div class="glass rounded-2xl p-2 flex flex-col">
+                        <div class="flex items-center justify-between p-3 border-b border-white/5">
+                            <div class="flex items-center gap-3"><i class="ph ph-speaker-high text-slate-400"></i> <span class="text-sm">App Sounds</span></div>
+                            <input type="checkbox" id="set-sounds" onchange="toggleSetting('sound')" class="toggle-switch">
+                        </div>
+                        <div class="flex items-center justify-between p-3 border-b border-white/5">
+                            <div class="flex items-center gap-3"><i class="ph ph-music-notes text-slate-400"></i> <span class="text-sm">Ambient Focus Music</span></div>
+                            <input type="checkbox" id="set-ambient" onchange="toggleAmbientMusic()" class="toggle-switch">
+                        </div>
+                        <div class="flex items-center justify-between p-3">
+                            <div class="flex items-center gap-3"><i class="ph ph-bell-ringing text-slate-400"></i> <span class="text-sm">Push Notifications</span></div>
+                            <button onclick="requestPushPermission()" id="btn-push" class="text-xs bg-brand-accent1/20 text-brand-accent1 px-3 py-1.5 rounded-lg font-bold">Enable</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="mt-2">
+                    <div class="border border-red-500/20 bg-red-500/5 rounded-2xl p-4">
+                        <h3 class="text-sm font-bold text-red-400 mb-2">Danger Zone</h3>
+                        <p class="text-[10px] text-slate-400 mb-4">Resetting permanently deletes all progress and uploaded proofs.</p>
+                        <button onclick="factoryReset()" class="w-full bg-red-500/20 hover:bg-red-500/40 text-red-300 py-3 rounded-lg text-sm font-bold transition-colors">
+                            RESET APP DATA
+                        </button>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav class="fixed bottom-0 w-full bg-brand-dark/80 backdrop-blur-xl border-t border-white/10 pb-safe z-50">
+            <div class="flex justify-around items-center p-2 max-w-lg mx-auto">
+                <button onclick="navToApp('hero')" class="nav-item p-3 flex flex-col items-center text-slate-500 active" data-view="hero">
+                    <i class="ph ph-squares-four text-2xl mb-1"></i><span class="text-[9px] font-bold">HOME</span>
+                </button>
+                <button onclick="navToApp('tracker')" class="nav-item p-3 flex flex-col items-center text-slate-500" data-view="tracker">
+                    <i class="ph ph-list-checks text-2xl mb-1"></i><span class="text-[9px] font-bold">LOG</span>
+                </button>
+                <button onclick="navToApp('timer')" class="nav-item p-3 flex flex-col items-center text-slate-500 relative" data-view="timer">
+                    <div class="absolute -top-3 bg-brand-accent1 text-black p-2 rounded-full shadow-[0_0_15px_rgba(0,242,254,0.4)]">
+                        <i class="ph ph-timer text-2xl"></i>
+                    </div>
+                    <span class="text-[9px] font-bold mt-7">TIMER</span>
+                </button>
+                <button onclick="navToApp('analytics')" class="nav-item p-3 flex flex-col items-center text-slate-500" data-view="analytics">
+                    <i class="ph ph-chart-polar text-2xl mb-1"></i><span class="text-[9px] font-bold">DATA</span>
+                </button>
+                <button onclick="navToApp('settings')" class="nav-item p-3 flex flex-col items-center text-slate-500" data-view="settings">
+                    <i class="ph ph-gear-six text-2xl mb-1"></i><span class="text-[9px] font-bold">SETTINGS</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- OVERLAY: DAY DETAIL (with Screenshot Upload & Categories) -->
+    <div id="view-day-detail" class="hidden-view fixed inset-0 flex flex-col bg-brand-dark z-50">
+        <header class="w-full p-4 flex items-center justify-between border-b border-white/10 bg-brand-dark/90 backdrop-blur shrink-0">
+            <div class="flex items-center gap-3">
+                <button onclick="closeDayDetail()" class="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-colors">
+                    <i class="ph ph-arrow-down text-xl"></i>
+                </button>
+                <div>
+                    <h1 id="detail-day-title" class="text-lg font-bold">DAY 01</h1>
+                </div>
+            </div>
+            <span id="detail-percent" class="text-xl font-bold text-brand-accent1">0%</span>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-6 pb-12">
+            <div class="max-w-lg mx-auto">
+                <h3 class="text-xs font-semibold tracking-widest text-slate-500 mb-4">DAILY TARGETS</h3>
+                <div id="tasks-container" class="flex flex-col gap-3 mb-8"></div>
+
+                <!-- Feature: Categorized Target Add -->
+                <div class="glass-panel p-3 rounded-xl mb-10 border border-white/10">
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="custom-task-input" placeholder="New habit / target..." class="flex-1 bg-black/40 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 ring-brand-accent1">
+                        <select id="custom-task-category" class="bg-black/40 rounded-lg px-2 text-xs text-white outline-none border-none">
+                            <option value="Study">Study</option>
+                            <option value="Fitness">Fitness</option>
+                            <option value="Mind">Mind</option>
+                        </select>
+                        <button onclick="addCustomTask()" class="bg-brand-accent1/20 text-brand-accent1 px-4 py-2 rounded-lg font-bold"><i class="ph ph-plus"></i></button>
+                    </div>
+                </div>
+
+                <!-- Feature: Visual Proof Attachment -->
+                <h3 class="text-xs font-semibold tracking-widest text-slate-500 mb-4 border-t border-white/10 pt-6">DAILY PROOF (OPTIONAL)</h3>
+                <div class="glass border border-white/10 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden group">
+                    <input type="file" id="proof-upload" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="handleProofUpload(event)">
+                    
+                    <div id="proof-preview-container" class="hidden absolute inset-0 z-0">
+                        <img id="proof-image" class="w-full h-full object-cover opacity-60">
+                        <button onclick="removeProof(event)" class="absolute top-2 right-2 bg-red-500/80 w-8 h-8 rounded-full flex items-center justify-center z-20 text-white relative"><i class="ph ph-trash"></i></button>
+                    </div>
+
+                    <div id="proof-placeholder" class="pointer-events-none relative z-0 group-hover:scale-105 transition-transform">
+                        <i class="ph ph-camera text-4xl text-slate-400 mb-2 block"></i>
+                        <p class="text-sm font-semibold text-white">Attach Screenshot</p>
+                        <p class="text-xs text-slate-500">Log your planner, code, or workout</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TOTAL_DAYS = 90;
+        let activeDay = 1;
+        let countdownInterval;
+        let pwaManifestGenerated = false;
+        let deferredPrompt; // For PWA Installation
+
+        const defaultTasks = [
+            { id: 't1', text: 'Deep Work Session', category: 'Study' },
+            { id: 't2', text: 'Daily Reading / Review', category: 'Mind' }
+        ];
+
+        let appState = {
+            onboarded: false,
+            name: '',
+            targetName: '',
+            targetDate: '',
+            settings: { sound: true, notifications: false },
+            progress: {}, // { tasksCompleted: [], customTasks: [], proof: null }
+            logs: { timerMinutes: 0 }
+        };
+
+        const el = (id) => document.getElementById(id);
+        const playSfx = (type) => { 
+            if(!appState.settings.sound) return;
+            const audio = el(`sfx-${type}`);
+            if(audio) { audio.currentTime = 0; audio.play().catch(()=>{}); }
+        };
+
+        function showToast(msg, isError = false) {
+            const t = el('toast');
+            const icon = t.querySelector('i');
+            el('toast-msg').innerText = msg;
+            icon.className = isError ? 'ph ph-warning-circle text-red-400 text-lg' : 'ph ph-check-circle text-brand-accent1 text-lg';
+            t.classList.replace(isError ? 'glass-panel' : 'bg-red-950/90', isError ? 'bg-red-950/90' : 'glass-panel');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function loadState() {
+            try {
+                const saved = localStorage.getItem('focusJourneyState');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    appState = { ...appState, ...parsed };
+                }
+            } catch(e) { console.error("Storage error", e); }
+        }
+
+        function saveState() {
+            localStorage.setItem('focusJourneyState', JSON.stringify(appState));
+        }
+
+        // Feature: Backup & Restore
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState));
+            const a = document.createElement('a');
+            a.setAttribute("href", dataStr);
+            a.setAttribute("download", `focus_backup_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast("Backup downloaded.");
+        }
+
+        el('file-import').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const imported = JSON.parse(event.target.result);
+                    if (imported.progress) {
+                        appState = imported;
+                        saveState();
+                        location.reload(); // Reload to apply state
+                    }
+                } catch (err) {
+                    showToast("Invalid backup file", true);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Generate PWA manifest locally to keep it Single File
+        function setupPWA() {
+            if (pwaManifestGenerated) return;
+            const manifest = {
+                name: "Focus Journey",
+                short_name: "Focus",
+                display: "standalone",
+                background_color: "#05080c",
+                theme_color: "#05080c",
+                icons: [{ src: "https://upload.wikimedia.org/wikipedia/commons/4/4e/Black_circle.png", sizes: "192x192", type: "image/png" }]
+            };
+            const manifestStr = JSON.stringify(manifest);
+            el('manifest-placeholder').setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(manifestStr));
+            pwaManifestGenerated = true;
+            
+            // Register an inline Service Worker to pass PWA installability requirements
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    self.addEventListener('install', (e) => self.skipWaiting());
+                    self.addEventListener('activate', (e) => self.clients.claim());
+                    self.addEventListener('fetch', (e) => {
+                        e.respondWith(fetch(e.request).catch(() => new Response('App is offline.')));
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).then(() => console.log('SW Registered for PWA')).catch(() => {});
+            }
+        }
+
+        // Listen for the native install prompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); // Prevent the mini-infobar from appearing on mobile
+            deferredPrompt = e; // Stash the event so it can be triggered later.
+            // Update UI to notify the user they can install the PWA
+            const installSection = document.getElementById('install-section');
+            if (installSection) installSection.classList.remove('hidden');
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt(); // Show the install prompt
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                        document.getElementById('install-section').classList.add('hidden');
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                showToast("Your browser doesn't support direct installation or the app is already installed. Try 'Add to Home Screen' from your browser menu.", true);
+            }
+        }
+
+        function getDayDiff(endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            const now = new Date();
+            const diff = end - now;
+            return diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : 0;
+        }
+
+        function initApp() {
+            setupPWA();
+            loadState();
+            
+            // Apply preferences
+            el('set-sounds').checked = appState.settings.sound;
+            el('set-ambient').checked = appState.settings.ambient || false;
+            if(appState.settings.ambient) el('sfx-ambient').play().catch(()=>{});
+
+            if (!appState.onboarded) {
+                el('view-onboarding').classList.remove('hidden-view');
+                el('app-container').classList.add('hidden-view');
+            } else {
+                el('view-onboarding').classList.add('hidden-view');
+                el('app-container').classList.remove('hidden-view');
+                initDashboard();
+                navToApp('hero');
+            }
+        }
+
+        function nextOnboardingStep(step) {
+            if (step === 2 && !el('onb-name').value.trim()) return showToast("Enter your name", true);
+            if (step === 3 && !el('onb-target').value.trim()) return showToast("Enter a target", true);
+            
+            document.querySelectorAll('#view-onboarding > div > div').forEach(el => el.classList.add('hidden-view'));
+            el(`onb-step-${step}`).classList.remove('hidden-view');
+        }
+
+        function finishOnboarding() {
+            if (!el('onb-date').value) return showToast("Select a date", true);
+            
+            appState.name = el('onb-name').value.trim();
+            appState.targetName = el('onb-target').value.trim();
+            appState.targetDate = el('onb-date').value;
+            appState.onboarded = true;
+            
+            // Initialize progress object
+            for(let i=1; i<=TOTAL_DAYS; i++) {
+                appState.progress[i] = { tasksCompleted: [], customTasks: [], proof: null };
+            }
+            
+            saveState();
+            el('view-onboarding').classList.add('hidden-view');
+            el('app-container').classList.remove('hidden-view');
+            initDashboard();
+            navToApp('hero');
+            showToast("Journey Started!");
+        }
+
+        function navToApp(viewId) {
+            document.querySelectorAll('.app-view').forEach(v => v.classList.add('hidden-view'));
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+            
+            el(`view-${viewId}`).classList.remove('hidden-view');
+            const navBtn = document.querySelector(`.nav-item[data-view="${viewId}"]`);
+            if (navBtn) navBtn.classList.add('active');
+
+            if (viewId === 'hero') updateHero();
+            if (viewId === 'tracker') renderTracker();
+            if (viewId === 'analytics') renderAnalytics();
+        }
+
+        const quotes = [
+            "Consistency is what transforms average into excellence.",
+            "The secret of your future is hidden in your daily routine.",
+            "Success is the sum of small efforts, repeated day in and day out.",
+            "Amateurs sit and wait for inspiration, the rest of us just get up and go to work.",
+            "Don't count the days, make the days count."
+        ];
+
+        function updateHero() {
+            el('hero-greeting').innerText = `Hello, ${appState.name}`;
+            el('hero-target-name').innerText = appState.targetName;
+            
+            // Daily Quote
+            const todayIndex = new Date().getDay() % quotes.length;
+            el('daily-quote').innerText = `"${quotes[todayIndex]}"`;
+
+            // Countdown
+            const daysLeft = getDayDiff(appState.targetDate);
+            el('count-days').innerText = daysLeft.toString().padStart(3, '0');
+
+            // Streak & Today logic (mock calculation based on object iteration)
+            let streak = 0;
+            let currentDayIndex = TOTAL_DAYS - daysLeft + 1; // rough estimate for active day
+            if (currentDayIndex < 1) currentDayIndex = 1;
+            if (currentDayIndex > TOTAL_DAYS) currentDayIndex = TOTAL_DAYS;
+            
+            for (let i=1; i<=currentDayIndex; i++) {
+                const dayData = appState.progress[i];
+                if (dayData && dayData.tasksCompleted.length > 0) streak++;
+                else if (i !== currentDayIndex) streak = 0; // break streak if past day has 0
+            }
+            el('dash-streak').innerText = streak;
+
+            const todayData = appState.progress[currentDayIndex] || { tasksCompleted: [], customTasks: [] };
+            const totalToday = defaultTasks.length + todayData.customTasks.length;
+            el('dash-today').innerText = `${todayData.tasksCompleted.length} / ${totalToday}`;
+        }
+
+        function initDashboard() {
+            updateHero();
+            setInterval(updateHero, 1000 * 60 * 60); // Update every hour
+        }
+
+        let timerTime = 25 * 60;
+        let timerActive = false;
+        let timerMode = 'focus'; // 'focus' or 'break'
+        let timerInterval;
+
+        function setTimerMode(mode) {
+            if (timerActive) toggleTimer(); // pause
+            timerMode = mode;
+            timerTime = mode === 'focus' ? 25 * 60 : 5 * 60;
+            
+            el('btn-mode-focus').className = mode === 'focus' ? 'flex-1 py-2 rounded text-sm font-bold bg-white/10 text-white transition-all' : 'flex-1 py-2 rounded text-sm font-bold text-slate-400 hover:text-white transition-all';
+            el('btn-mode-break').className = mode === 'break' ? 'flex-1 py-2 rounded text-sm font-bold bg-white/10 text-white transition-all' : 'flex-1 py-2 rounded text-sm font-bold text-slate-400 hover:text-white transition-all';
+            
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(timerTime / 60);
+            const s = timerTime % 60;
+            el('timer-display').innerText = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+            
+            // Update Ring
+            const total = timerMode === 'focus' ? 25 * 60 : 5 * 60;
+            const dashoffset = 283 - (timerTime / total) * 283;
+            el('timer-ring').style.strokeDashoffset = dashoffset;
+            
+            // Total Logged
+            el('timer-total-focused').innerText = `${appState.logs.timerMinutes || 0} minutes`;
+        }
+
+        function toggleTimer() {
+            timerActive = !timerActive;
+            const btn = el('btn-timer-toggle');
+            if (timerActive) {
+                btn.innerText = "PAUSE";
+                btn.classList.replace('bg-brand-accent1', 'bg-orange-500');
+                btn.classList.replace('text-black', 'text-white');
+                timerInterval = setInterval(() => {
+                    timerTime--;
+                    if (timerTime <= 0) {
+                        playSfx('complete');
+                        showToast(timerMode === 'focus' ? "Session Complete!" : "Break Over!", false);
+                        if (timerMode === 'focus') {
+                            if ('Notification' in window && Notification.permission === "granted") {
+                                new Notification("Focus Journey", { body: "Focus session complete. Time for a break!" });
+                            }
+                            appState.logs.timerMinutes = (appState.logs.timerMinutes || 0) + 25;
+                            saveState();
+                        }
+                        setTimerMode(timerMode === 'focus' ? 'break' : 'focus');
+                    }
+                    updateTimerDisplay();
+                }, 1000);
+            } else {
+                btn.innerText = "RESUME";
+                btn.classList.replace('bg-orange-500', 'bg-brand-accent1');
+                btn.classList.replace('text-white', 'text-black');
+                clearInterval(timerInterval);
+            }
+        }
+
+        function resetTimer() {
+            if (timerActive) toggleTimer();
+            setTimerMode(timerMode);
+        }
+
+
+        function renderTracker() {
+            const list = el('days-list');
+            list.innerHTML = '';
+            let completedDays = 0;
+
+            for(let i=1; i<=TOTAL_DAYS; i++) {
+                const dayObj = appState.progress[i] || { tasksCompleted: [], customTasks: [] };
+                const totalTasks = defaultTasks.length + dayObj.customTasks.length;
+                const completed = dayObj.tasksCompleted.length;
+                const pct = totalTasks === 0 ? 0 : Math.round((completed / totalTasks) * 100);
+                
+                if (pct === 100) completedDays++;
+
+                const div = document.createElement('div');
+                div.className = `glass-panel rounded-xl p-4 flex items-center justify-between cursor-pointer transition-transform hover:scale-[1.02] border border-white/5 ${pct === 100 ? 'border-brand-accent1/30' : ''}`;
+                div.onclick = () => openDayDetail(i);
+                
+                div.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-full ${pct === 100 ? 'bg-brand-accent1/20 text-brand-accent1 shadow-[0_0_10px_rgba(0,242,254,0.2)]' : 'bg-white/5 text-slate-500'} flex items-center justify-center font-bold text-sm">
+                            ${i}
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm ${pct === 100 ? 'text-white' : 'text-slate-300'}">Day ${i}</h3>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-widest">${completed}/${totalTasks} Tasks</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        ${dayObj.proof ? '<i class="ph ph-image text-brand-accent1" title="Proof Uploaded"></i>' : ''}
+                        <div class="text-right">
+                            <span class="text-xs font-bold ${pct === 100 ? 'text-brand-accent1' : 'text-slate-500'}">${pct}%</span>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(div);
+            }
+
+            const overallPct = Math.round((completedDays / TOTAL_DAYS) * 100);
+            el('tracker-progress-bar').style.width = `${overallPct}%`;
+            el('tracker-overall-text').innerText = `${overallPct}%`;
+        }
+
+        function openDayDetail(day) {
+            activeDay = day;
+            el('detail-day-title').innerText = `DAY ${String(day).padStart(2,'0')}`;
+            el('view-day-detail').classList.remove('hidden-view');
+            renderTasks();
+            
+            // Photo logic
+            const currentProof = appState.progress[day].proof;
+            if (currentProof) {
+                el('proof-image').src = currentProof;
+                el('proof-preview-container').classList.remove('hidden');
+                el('proof-placeholder').classList.add('hidden');
+            } else {
+                el('proof-image').src = '';
+                el('proof-preview-container').classList.add('hidden');
+                el('proof-placeholder').classList.remove('hidden');
+            }
+        }
+
+        function closeDayDetail() {
+            el('view-day-detail').classList.add('hidden-view');
+            if (!el('view-tracker').classList.contains('hidden-view')) renderTracker();
+            if (!el('view-hero').classList.contains('hidden-view')) updateHero();
+        }
+
+        function renderTasks() {
+            const container = el('tasks-container');
+            container.innerHTML = '';
+            
+            const dayData = appState.progress[activeDay];
+            const allTasks = [...defaultTasks, ...dayData.customTasks];
+            
+            allTasks.forEach(task => {
+                const isCompleted = dayData.tasksCompleted.includes(task.id);
+                const categoryColor = task.category === 'Study' ? 'text-blue-400' : task.category === 'Fitness' ? 'text-green-400' : 'text-purple-400';
+                
+                const div = document.createElement('div');
+                div.className = `glass p-3 rounded-xl flex items-center justify-between border ${isCompleted ? 'border-brand-accent1/50 bg-brand-accent1/5' : 'border-white/5'}`;
+                
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" ${isCompleted ? 'checked' : ''} onchange="toggleTask('${task.id}', this.checked)">
+                        <div>
+                            <p class="${isCompleted ? 'line-through text-slate-500' : 'text-white'} text-sm transition-all">${task.text}</p>
+                            <span class="text-[9px] uppercase tracking-widest ${categoryColor}">${task.category || 'Task'}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            const pct = allTasks.length === 0 ? 0 : Math.round((dayData.tasksCompleted.length / allTasks.length) * 100);
+            el('detail-percent').innerText = `${pct}%`;
+        }
+
+        function toggleTask(taskId, isChecked) {
+            const dayData = appState.progress[activeDay];
+            if (isChecked) {
+                if (!dayData.tasksCompleted.includes(taskId)) dayData.tasksCompleted.push(taskId);
+                playSfx('complete');
+            } else {
+                dayData.tasksCompleted = dayData.tasksCompleted.filter(id => id !== taskId);
+            }
+            saveState();
+            renderTasks();
+        }
+
+        function addCustomTask() {
+            const input = el('custom-task-input');
+            const category = el('custom-task-category').value;
+            const text = input.value.trim();
+            if (!text) return;
+
+            const newTask = { id: `ct_${Date.now()}`, text: text, category: category };
+            appState.progress[activeDay].customTasks.push(newTask);
+            
+            saveState();
+            input.value = '';
+            renderTasks();
+            showToast("Target Added!");
+        }
+
+        // Image compression before saving to localStorage to avoid QuotaExceededError
+        function handleProofUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const MAX = 500;
+                    
+                    if (width > height && width > MAX) { height *= MAX / width; width = MAX; }
+                    else if (height > MAX) { width *= MAX / height; height = MAX; }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // compress
+                    
+                    try {
+                        appState.progress[activeDay].proof = dataUrl;
+                        saveState();
+                        el('proof-image').src = dataUrl;
+                        el('proof-preview-container').classList.remove('hidden');
+                        el('proof-placeholder').classList.add('hidden');
+                        showToast("Proof Saved!");
+                    } catch (err) {
+                        showToast("Storage full. Delete old proofs.", true);
+                    }
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeProof(e) {
+            e.stopPropagation();
+            appState.progress[activeDay].proof = null;
+            saveState();
+            el('proof-image').src = '';
+            el('proof-preview-container').classList.add('hidden');
+            el('proof-placeholder').classList.remove('hidden');
+            el('proof-upload').value = '';
+        }
+
+        function toggleSetting(key) {
+            appState.settings[key] = !appState.settings[key];
+            saveState();
+        }
+
+        function toggleAmbientMusic() {
+            appState.settings.ambient = el('set-ambient').checked;
+            saveState();
+            const audio = el('sfx-ambient');
+            if (appState.settings.ambient) {
+                audio.play().catch(e=> showToast("Tap anywhere to allow audio", true));
+            } else {
+                audio.pause();
+            }
+        }
+
+        function requestPushPermission() {
+            if (!('Notification' in window)) return showToast("Not supported in this browser", true);
+            Notification.requestPermission().then(perm => {
+                if(perm === 'granted') {
+                    appState.settings.notifications = true;
+                    saveState();
+                    showToast("Notifications Enabled");
+                    el('btn-push').innerText = 'Active';
+                    el('btn-push').classList.replace('text-brand-accent1', 'text-green-400');
+                } else {
+                    showToast("Permission denied", true);
+                }
+            });
+        }
+
+        function factoryReset() {
+            if (confirm("Are you absolutely sure? This will delete all 90 days of progress, stats, and proofs. This cannot be undone.")) {
+                localStorage.removeItem('focusJourneyState');
+                location.reload();
+            }
+        }
+
+        function renderAnalytics() {
+            // Feature: Heatmap
+            const grid = el('heatmap-container');
+            grid.innerHTML = '';
+            let totalTasksAllTime = 0;
+            let completedTasksAllTime = 0;
+
+            for(let i=1; i<=TOTAL_DAYS; i++) {
+                const dayData = appState.progress[i] || { tasksCompleted: [], customTasks: [] };
+                const total = defaultTasks.length + dayData.customTasks.length;
+                const comp = dayData.tasksCompleted.length;
+                
+                totalTasksAllTime += total;
+                completedTasksAllTime += comp;
+
+                const pct = total === 0 ? 0 : comp / total;
+                
+                const cell = document.createElement('div');
+                cell.className = 'aspect-square rounded-sm text-[8px] flex items-center justify-center font-bold relative group';
+                
+                if (pct === 0) cell.classList.add('bg-white/5');
+                else if (pct < 0.5) cell.classList.add('bg-blue-900/50');
+                else if (pct < 1) cell.classList.add('bg-blue-600');
+                else cell.classList.add('bg-brand-accent1', 'shadow-[0_0_5px_rgba(0,242,254,0.5)]', 'text-black');
+                
+                // Tooltip
+                const tooltip = document.createElement('div');
+                tooltip.className = 'absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50';
+                tooltip.innerText = `Day ${i}: ${comp}/${total}`;
+                cell.appendChild(tooltip);
+
+                grid.appendChild(cell);
+            }
+
+            const overallPct = totalTasksAllTime === 0 ? 0 : Math.round((completedTasksAllTime / totalTasksAllTime) * 100);
+
+            el('analytics-content').innerHTML = `
+                <div class="glass-panel p-5 rounded-2xl flex justify-between items-center">
+                    <div>
+                        <h3 class="text-xs font-semibold tracking-widest text-slate-500 mb-1">OVERALL COMPLETION</h3>
+                        <p class="text-2xl font-bold text-white">${overallPct}%</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full border-[4px] border-brand-accent1 flex items-center justify-center">
+                        <i class="ph ph-trend-up text-brand-accent1 text-xl"></i>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div class="glass p-4 rounded-xl">
+                        <h4 class="text-[10px] text-slate-400 tracking-wider mb-2">DEEP WORK TIME</h4>
+                        <p class="text-xl font-bold text-white">${appState.logs.timerMinutes || 0} <span class="text-xs text-slate-500">mins</span></p>
+                    </div>
+                    <div class="glass p-4 rounded-xl">
+                        <h4 class="text-[10px] text-slate-400 tracking-wider mb-2">TASKS DONE</h4>
+                        <p class="text-xl font-bold text-white">${completedTasksAllTime} <span class="text-xs text-slate-500">total</span></p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Initialize App
+        window.onload = () => {
+            initApp();
+            
+            // Allow audio unlock on user interaction
+            document.body.addEventListener('click', () => {
+                if (appState.settings.ambient && el('sfx-ambient').paused) {
+                    el('sfx-ambient').play().catch(()=>{});
+                }
+            }, { once: true });
+        };
+    </script>
+</body>
+</html>
